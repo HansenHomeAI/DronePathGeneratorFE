@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Drone flight path generator</title>
+    <!-- We no longer load the Google Maps JS on the frontend -->
+    <style>
+        /* Your same CSS from before — no changes needed */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background: #000; /* black */
+            color: #fff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 80px auto 40px auto;
+            padding: 20px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        h1, h2, label {
+            text-shadow: 0 3px 16px rgba(0,0,0,0.8);
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        h2 {
+            font-size: 1.3rem;
+            font-weight: 500;
+            margin-top: 40px;
+            margin-bottom: 15px;
+        }
+        label {
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 8px;
+            display: block;
+        }
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            margin-bottom: 15px;
+            transition: border 0.2s ease, background 0.2s ease;
+        }
+        input[type="text"]::placeholder,
+        input[type="number"]::placeholder {
+            color: #bbb;
+            opacity: 1;
+        }
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            border: 1px solid #FF4F00;
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .input-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .input-row input[type="number"],
+        .input-row input[type="text"] {
+            flex: 1;
+            min-width: 45%;
+        }
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+            margin-left: 10px;
+            color: #fff;
+            cursor: pointer;
+            user-select: none;
+        }
+        .toggle-label input[type="checkbox"] {
+            margin-right: 5px;
+            accent-color: #FF4F00;
+        }
+        button {
+            padding: 14px 24px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 999px;
+            background: #FF4F00;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            text-shadow: 0 1px 10px rgba(0,0,0,0.4);
+        }
+        button:hover {
+            background: #d84400;
+        }
+        #downloadMasterBtn,
+        .segment-downloads button {
+            margin-top: 8px;
+            margin-right: 8px;
+        }
+        .pill-toggle {
+            display: inline-block;
+            background-color: #2C2C2C;
+            border-radius: 999px;
+            width: 200px;
+            height: 42px;
+            position: relative;
+            margin: 0 auto 20px auto;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        .pill-toggle-selector {
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 94px;
+            height: 36px;
+            background-color: #565656;
+            border-radius: 999px;
+            transition: all 0.3s ease;
+        }
+        .pill-toggle-labels {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            height: 100%;
+            user-select: none;
+            cursor: pointer;
+        }
+        .pill-toggle-labels span {
+            flex: 1;
+            text-align: center;
+            font-weight: 500;
+            font-size: 0.95rem;
+            line-height: 42px;
+            color: #fff;
+        }
+        .pill-toggle[data-mode="advanced"] .pill-toggle-selector {
+            left: 103px;
+        }
+        .slider-container {
+            width: 100%;
+            margin: 0 auto 20px auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 95%;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 999px;
+            outline: none;
+            margin: 0;
+            cursor: pointer;
+            position: relative;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 4px;
+            background: transparent;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #FF4F00;
+            cursor: pointer;
+            margin-top: -8px;
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #FF4F00;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-moz-range-thumb:hover {
+            transform: scale(1.1);
+        }
+        input[type="range"]::-moz-range-thumb:active {
+            transform: scale(1.2);
+        }
+        .slider-ticks {
+            pointer-events: none;
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            width: 90%;
+            transform: translateY(-50%);
+            display: flex;
+            justify-content: space-between;
+        }
+        .slider-ticks span {
+            display: inline-block;
+            width: 1px;
+            background: #fff;
+            opacity: 0.8;
+        }
+        .tick-quarter {
+            height: 14px;
+        }
+        .tick-eighth {
+            height: 10px;
+        }
+        .tick-sixteenth {
+            height: 8px;
+        }
+        .tick-thirtysecond {
+            height: 5px;
+        }
+        .slider-labels {
+            width: 95%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+            font-size: 1rem;
+            color: #ccc;
+        }
+        #result,
+        #flightTime,
+        #log {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            color: #fff;
+        }
+        #result {
+            font-weight: 600;
+        }
+        #log {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        #log strong {
+            color: #FF4F00;
+        }
+        .poi-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .poi-row span {
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        #addPoiButton {
+            margin-top: 5px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 999px;
+            padding: 10px 18px;
+            transition: background 0.3s ease;
+        }
+        #addPoiButton:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        .poi-row button {
+            background-color: #FF4F00;
+            border: none;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        .poi-row button:hover {
+            background-color: #d84400;
+        }
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        @media (max-width: 480px) {
+            .container {
+                width: 95%;
+                margin: 40px auto;
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Drone flight path generator</h1>
+
+        <h2>Location</h2>
+        <form id="coordinateForm">
+            <div class="input-row">
+                <input 
+                    type="text" 
+                    id="title" 
+                    name="title" 
+                    placeholder="Enter title"
+                >
+                <input 
+                    type="text" 
+                    id="coordinates" 
+                    name="coordinates" 
+                    placeholder="Enter coordinates (e.g., 40.68920°N, 74.04454°W)"
+                >
+            </div>
+            <input 
+                type="text" 
+                id="takeoffCoordinates" 
+                name="takeoffCoordinates" 
+                placeholder="Separate takeoff coordinates (optional)"
+            >
+
+            <h2>Flight</h2>
+            <div class="pill-toggle" id="modeToggle" data-mode="standard">
+                <div class="pill-toggle-selector"></div>
+                <div class="pill-toggle-labels">
+                    <span class="standard-label" onclick="setGeneratorMode('standard')">Standard</span>
+                    <span class="advanced-label" onclick="setGeneratorMode('advanced')">Advanced</span>
+                </div>
+            </div>
+
+            <!-- Standard Mode UI -->
+            <div id="standardModeUI" style="display:block;">
+                <div class="slider-container">
+                    <input 
+                        type="range" 
+                        id="pathSizeSlider" 
+                        min="0" 
+                        max="100" 
+                        value="0" 
+                        step="1"
+                    >
+                    <div class="slider-labels">
+                        <span>Smallest size</span>
+                        <span>Largest size</span>
+                    </div>
+                </div>
+                <div class="input-row">
+                    <input 
+                        type="number" 
+                        id="minHeight" 
+                        name="minHeight" 
+                        placeholder="Min height (default: 100ft)" 
+                        step="any"
+                    >
+                    <input 
+                        type="number" 
+                        id="maxHeight" 
+                        name="maxHeight" 
+                        placeholder="Max height (optional)" 
+                        step="any"
+                    >
+                </div>
+                <input 
+                    type="number" 
+                    id="batteryCapacity" 
+                    name="batteryCapacity" 
+                    placeholder="Battery capacity (default: 20min)" 
+                    step="any"
+                >
+            </div>
+
+            <!-- Advanced Mode UI -->
+            <div id="advancedModeUI" style="display:none;">
+                <div class="input-row">
+                    <input 
+                        type="number" 
+                        id="numLoops" 
+                        name="numLoops" 
+                        placeholder="Loops (default: 3)" 
+                        min="1" 
+                        step="1"
+                    >
+                    <input 
+                        type="number" 
+                        id="initialRadius" 
+                        name="initialRadius" 
+                        placeholder="Initial radius (default: 200ft)" 
+                        step="any"
+                    >
+                </div>
+                <div class="input-row">
+                    <div>
+                        <input 
+                            type="number" 
+                            id="radiusIncrement" 
+                            name="radiusIncrement" 
+                            placeholder="Radius increment (default: 50ft)" 
+                            step="any"
+                        >
+                        <label class="toggle-label" for="exponentialRadius">
+                            <input type="checkbox" id="exponentialRadius">
+                            Exponential
+                        </label>
+                    </div>
+                    <div>
+                        <input 
+                            type="number" 
+                            id="aglIncrement" 
+                            name="aglIncrement" 
+                            placeholder="Height increment (default: 20ft)" 
+                            step="any"
+                        >
+                        <label class="toggle-label" for="exponentialAGL">
+                            <input type="checkbox" id="exponentialAGL">
+                            Exponential
+                        </label>
+                    </div>
+                </div>
+                <div class="input-row">
+                    <input 
+                        type="number" 
+                        id="initialAGL" 
+                        name="initialAGL" 
+                        placeholder="Min height (default: 150ft)" 
+                        step="any"
+                    >
+                    <input 
+                        type="number" 
+                        id="startPointAltitude" 
+                        name="startPointAltitude" 
+                        placeholder="Start point altitude (default: 70ft)" 
+                        step="any"
+                    >
+                </div>
+                <input 
+                    type="number" 
+                    id="poiAltitude" 
+                    name="poiAltitude" 
+                    placeholder="POI altitude (default: 0ft)" 
+                    step="any"
+                >
+            </div>
+
+            <div id="poiSection" style="display:none;">
+                <h2>Points of Interest</h2>
+                <label class="toggle-label" style="margin-bottom: 10px;">
+                    <input type="checkbox" id="poiModeToggle">
+                    Use Gimbal Tilt Control Instead of POI Elevation
+                </label>
+            </div>
+            <button type="button" id="addPoiButton" style="display:none;">Add POI</button>
+
+            <h2>Download</h2>
+            <button type="submit">Generate flight path</button>
+            <div id="result"></div>
+            <button id="downloadMasterBtn" style="display:none;">Download Master Flight Path CSV</button>
+            <div id="segmentDownloads" class="segment-downloads" style="display:none;"></div>
+            <div id="flightTime" style="display:none;"></div>
+            <div id="log"></div>
+        </form>
+    </div>
+
+    <script>
+        let poiCount = 0;
+        const modeToggle = document.getElementById('modeToggle');
+        const standardModeUI = document.getElementById('standardModeUI');
+        const advancedModeUI = document.getElementById('advancedModeUI');
+        const poiSection = document.getElementById('poiSection');
+        const addPoiButton = document.getElementById('addPoiButton');
+
+        function setGeneratorMode(mode) {
+            if (mode === 'standard') {
+                modeToggle.setAttribute('data-mode', 'standard');
+                standardModeUI.style.display = 'block';
+                advancedModeUI.style.display = 'none';
+                poiSection.style.display = 'none';
+                addPoiButton.style.display = 'none';
+            } else {
+                modeToggle.setAttribute('data-mode', 'advanced');
+                standardModeUI.style.display = 'none';
+                advancedModeUI.style.display = 'block';
+                poiSection.style.display = 'block';
+                addPoiButton.style.display = 'inline-block';
+            }
+        }
+
+        document.getElementById("addPoiButton").addEventListener("click", addPoiRow);
+        function addPoiRow() {
+            poiCount++;
+            const row = document.createElement('div');
+            row.classList.add('poi-row');
+
+            const poiLabel = document.createElement('span');
+            poiLabel.textContent = `POI ${poiCount}`;
+
+            const poiAltitudeInput = document.createElement('input');
+            poiAltitudeInput.type = 'number';
+            poiAltitudeInput.name = `poiAltitude${poiCount}`;
+            poiAltitudeInput.placeholder = 'POI Altitude Ft';
+            poiAltitudeInput.step = 'any';
+
+            const appliesToLabel = document.createElement('span');
+            appliesToLabel.textContent = 'POI Applies to:';
+
+            const loopFromInput = document.createElement('input');
+            loopFromInput.type = 'number';
+            loopFromInput.name = `poiLoopFrom${poiCount}`;
+            loopFromInput.placeholder = 'From Loop';
+            loopFromInput.min = '1';
+            loopFromInput.step = '1';
+
+            const toLabel = document.createElement('span');
+            toLabel.textContent = 'to';
+
+            const loopToInput = document.createElement('input');
+            loopToInput.type = 'number';
+            loopToInput.name = `poiLoopTo${poiCount}`;
+            loopToInput.placeholder = 'To Loop';
+            loopToInput.min = '1';
+            loopToInput.step = '1';
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'X';
+            deleteBtn.addEventListener('click', () => {
+                row.remove();
+            });
+
+            row.appendChild(poiLabel);
+            row.appendChild(poiAltitudeInput);
+            row.appendChild(appliesToLabel);
+            row.appendChild(loopFromInput);
+            row.appendChild(toLabel);
+            row.appendChild(loopToInput);
+            row.appendChild(deleteBtn);
+
+            poiSection.appendChild(row);
+        }
+
+        function getSliderFraction() {
+            const sliderVal = parseFloat(document.getElementById("pathSizeSlider").value);
+            return sliderVal / 100.0;
+        }
+
+        document.getElementById("coordinateForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const resultDiv = document.getElementById("result");
+            const downloadMasterBtn = document.getElementById("downloadMasterBtn");
+            const flightTimeDiv = document.getElementById("flightTime");
+            const segmentDownloadsDiv = document.getElementById("segmentDownloads");
+            const logDiv = document.getElementById("log");
+            logDiv.innerHTML = '';
+            resultDiv.innerHTML = '';
+
+            // Gather all user input
+            const payload = {
+                title: document.getElementById("title").value.trim() || 'untitled',
+                coordinates: document.getElementById("coordinates").value.trim(),
+                takeoffCoordinates: document.getElementById("takeoffCoordinates").value.trim(),
+                mode: modeToggle.getAttribute('data-mode'),
+                sliderFraction: getSliderFraction(),
+                minHeight: document.getElementById("minHeight").value.trim(),
+                maxHeight: document.getElementById("maxHeight").value.trim(),
+                batteryCapacity: document.getElementById("batteryCapacity").value.trim(),
+                numLoops: document.getElementById("numLoops").value.trim(),
+                initialRadius: document.getElementById("initialRadius").value.trim(),
+                radiusIncrement: document.getElementById("radiusIncrement").value.trim(),
+                exponentialRadius: document.getElementById("exponentialRadius").checked,
+                aglIncrement: document.getElementById("aglIncrement").value.trim(),
+                exponentialAGL: document.getElementById("exponentialAGL").checked,
+                initialAGL: document.getElementById("initialAGL").value.trim(),
+                startPointAltitude: document.getElementById("startPointAltitude").value.trim(),
+                poiAltitude: document.getElementById("poiAltitude").value.trim(),
+                useGimbalTiltMode: document.getElementById("poiModeToggle").checked,
+                poiRows: []
+            };
+
+            const rows = document.getElementsByClassName('poi-row');
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const altVal = row.querySelector(`input[name="poiAltitude${i+1}"]`).value.trim();
+                const loopFrom = row.querySelector(`input[name="poiLoopFrom${i+1}"]`).value.trim();
+                const loopTo = row.querySelector(`input[name="poiLoopTo${i+1}"]`).value.trim();
+                payload.poiRows.push({
+                    altitude: altVal,
+                    loopFrom: loopFrom,
+                    loopTo: loopTo
+                });
+            }
+
+            try {
+                // *** CALL YOUR AWS LAMBDA ENDPOINT HERE ***
+                // Replace the URL below with your actual AWS API Gateway endpoint
+                const lambdaUrl = "https://your-api-gateway-id.execute-api.your-region.amazonaws.com/default/drone_path_generator";
+                const response = await fetch(lambdaUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Lambda request failed: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // data will contain flightPath, segments, totalFlightTimeMinutes, logs, etc.
+                // Display logs
+                if (data.logs) {
+                    data.logs.forEach(entry => {
+                        log(entry.title, entry.msg);
+                    });
+                }
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Show final elevation or summary
+                if (data.elevationMsg) {
+                    resultDiv.innerHTML = data.elevationMsg;
+                }
+
+                // Show flight time
+                if (typeof data.totalFlightTimeMinutes !== "undefined") {
+                    flightTimeDiv.style.display = "block";
+                    flightTimeDiv.innerHTML = `Estimated Total Flight Time: ${data.totalFlightTimeMinutes.toFixed(2)} minutes`;
+                }
+
+                // Enable Master CSV download
+                if (data.masterWaypoints && data.masterWaypoints.length) {
+                    downloadMasterBtn.style.display = "inline-block";
+                    const titleSafe = sanitizeTitle(data.title);
+                    downloadMasterBtn.onclick = function() {
+                        downloadCSV(data.masterWaypoints, `${titleSafe}-master.csv`);
+                        log('Download:', `${titleSafe}-master.csv has been downloaded.`);
+                    };
+                } else {
+                    downloadMasterBtn.style.display = "none";
+                }
+
+                // Segment downloads
+                if (data.segments && data.segments.length) {
+                    segmentDownloadsDiv.style.display = "block";
+                    segmentDownloadsDiv.innerHTML = `<p>Flight Segments (${data.segments.length}):</p>`;
+                    data.segments.forEach((segment, idx) => {
+                        const btn = document.createElement('button');
+                        btn.textContent = `Download Segment ${idx+1}`;
+                        btn.style.marginRight = "5px";
+                        const titleSafe = sanitizeTitle(data.title);
+                        btn.onclick = () => {
+                            downloadCSV(segment, `${titleSafe}-segment-${idx+1}.csv`);
+                            log('Download:', `${titleSafe}-segment-${idx+1}.csv has been downloaded.`);
+                        };
+                        segmentDownloadsDiv.appendChild(btn);
+                    });
+                } else {
+                    segmentDownloadsDiv.style.display = "none";
+                }
+
+            } catch (error) {
+                resultDiv.innerHTML = `Error: ${error.message}`;
+                log('Error:', error.message);
+                downloadMasterBtn.style.display = "none";
+                flightTimeDiv.style.display = "none";
+                segmentDownloadsDiv.style.display = "none";
+            }
+        });
+
+        function log(title, msg) {
+            const logDiv = document.getElementById("log");
+            logDiv.innerHTML += `<strong>${title}</strong> ${msg}\n`;
+        }
+
+        function downloadCSV(waypoints, filename) {
+            let csv = "latitude,longitude,altitude(ft),heading(deg),curvesize(ft),rotationdir,gimbalmode,gimbalpitchangle,altitudemode,speed(m/s),poi_latitude,poi_longitude,poi_altitude(ft),poi_altitudemode,photo_timeinterval,photo_distinterval\n";
+            waypoints.forEach((wp) => {
+                csv += [
+                    wp.latitude,
+                    wp.longitude,
+                    parseFloat(wp.altitude || 0).toFixed(2),
+                    wp.heading,
+                    wp.curvesize,
+                    wp.rotationdir,
+                    wp.gimbalmode,
+                    wp.gimbalpitchangle,
+                    wp.altitudemode,
+                    wp.speed,
+                    wp.poi_latitude,
+                    wp.poi_longitude,
+                    wp.poi_altitude,
+                    wp.poi_altitudemode,
+                    wp.photo_timeinterval,
+                    wp.photo_distinterval
+                ].join(",") + "\n";
+            });
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function sanitizeTitle(t) {
+            return t.replace(/[^a-z0-9_\-]/gi, '_');
+        }
+    </script>
+</body>
+</html>
