@@ -623,7 +623,7 @@
             try {
                 // *** CALL YOUR AWS LAMBDA ENDPOINT HERE ***
                 // Replace the URL below with your actual AWS API Gateway endpoint
-                const lambdaUrl = "https://2sgk99b5pg.execute-api.us-west-2.amazonaws.com/dev";
+                const lambdaUrl = "https://2sgk99b5pg.execute-api.us-west-2.amazonaws.com/default";
                 const response = await fetch(lambdaUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
