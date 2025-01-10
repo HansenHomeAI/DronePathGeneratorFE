@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
+    <!-- Viewport for proper mobile scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Drone flight path generator</title>
-    <!-- We no longer load the Google Maps JS on the frontend -->
     <style>
-        /* Your same CSS from before — no changes needed */
         * {
             margin: 0;
             padding: 0;
@@ -28,6 +28,7 @@
             backdrop-filter: blur(30px);
             -webkit-backdrop-filter: blur(30px);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            position: relative;
         }
         h1, h2, label {
             text-shadow: 0 3px 16px rgba(0,0,0,0.8);
@@ -50,8 +51,15 @@
             margin-bottom: 8px;
             display: block;
         }
-        input[type="text"],
-        input[type="number"] {
+
+        .input-wrapper {
+            position: relative;
+            display: block;
+            margin-bottom: 15px;
+            flex: 1;
+        }
+        .input-wrapper input[type="text"],
+        .input-wrapper input[type="number"] {
             width: 100%;
             padding: 12px 15px;
             font-size: 1rem;
@@ -60,43 +68,108 @@
             background: rgba(255, 255, 255, 0.1);
             color: #fff;
             outline: none;
-            margin-bottom: 15px;
             transition: border 0.2s ease, background 0.2s ease;
         }
-        input[type="text"]::placeholder,
-        input[type="number"]::placeholder {
+        .input-wrapper input[type="text"]::placeholder,
+        .input-wrapper input[type="number"]::placeholder {
             color: #bbb;
             opacity: 1;
         }
-        input[type="text"]:focus,
-        input[type="number"]:focus {
+        .input-wrapper input[type="text"]:focus,
+        .input-wrapper input[type="number"]:focus {
             border: 1px solid #FF4F00;
             background: rgba(255, 255, 255, 0.15);
         }
+        .input-wrapper.hover-active input[type="text"],
+        .input-wrapper.hover-active input[type="number"] {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .hover-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000;
+            color: #fff;
+            font-size: 0.9rem;
+            padding: 6px 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 999;
+        }
+        .input-wrapper.hover-active .hover-overlay {
+            opacity: 1;
+        }
+
+        .ios-toggle-container {
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 6px 12px;
+            margin-bottom: 15px;
+            position: relative;
+            min-height: 46px;
+            box-sizing: border-box;
+            flex: 0; /* keep toggles from expanding */
+        }
+        .ios-toggle-container .toggle-text {
+            font-size: 1rem;
+            color: #fff;
+            margin-left: 8px;
+        }
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            /* ADDED below to prevent the slider track from shrinking */
+            flex-shrink: 0;
+        }
+        .toggle-switch input[type="checkbox"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #565656; /* OFF state track */
+            border-radius: 34px;
+            transition: 0.4s;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            top: 3px;
+            background-color: white;
+            border-radius: 50%;
+            transition: 0.4s;
+        }
+        .toggle-switch input:checked + .slider {
+            background-color: #FF4F00;
+        }
+        .toggle-switch input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
         .input-row {
             display: flex;
             flex-wrap: wrap;
-            justify-content: space-between;
+            align-items: center;
             gap: 10px;
         }
-        .input-row input[type="number"],
-        .input-row input[type="text"] {
-            flex: 1;
-            min-width: 45%;
-        }
-        .toggle-label {
-            display: flex;
-            align-items: center;
-            font-size: 0.9rem;
-            margin-left: 10px;
-            color: #fff;
-            cursor: pointer;
-            user-select: none;
-        }
-        .toggle-label input[type="checkbox"] {
-            margin-right: 5px;
-            accent-color: #FF4F00;
-        }
+
         button {
             padding: 14px 24px;
             font-size: 1rem;
@@ -118,6 +191,7 @@
             margin-top: 8px;
             margin-right: 8px;
         }
+
         .pill-toggle {
             display: inline-block;
             background-color: #2C2C2C;
@@ -126,9 +200,7 @@
             height: 42px;
             position: relative;
             margin: 0 auto 20px auto;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            border: none;
         }
         .pill-toggle-selector {
             position: absolute;
@@ -160,6 +232,7 @@
         .pill-toggle[data-mode="advanced"] .pill-toggle-selector {
             left: 103px;
         }
+
         .slider-container {
             width: 100%;
             margin: 0 auto 20px auto;
@@ -273,43 +346,39 @@
         #log strong {
             color: #FF4F00;
         }
+
         .poi-row {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 15px;
             margin-bottom: 15px;
         }
-        .poi-row span {
+        .poi-row .poi-row-title {
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .poi-row-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .delete-poi-button {
+            background-color: rgba(255,255,255,0.1);
             color: #fff;
             font-size: 0.9rem;
-        }
-        #addPoiButton {
-            margin-top: 5px;
-            background: transparent;
             border: 1px solid rgba(255,255,255,0.2);
-            color: #fff;
             border-radius: 999px;
-            padding: 10px 18px;
+            padding: 8px 14px;
+            cursor: pointer;
             transition: background 0.3s ease;
         }
-        #addPoiButton:hover {
-            background: rgba(255,255,255,0.1);
+        .delete-poi-button:hover {
+            background-color: rgba(255,255,255,0.2);
         }
-        .poi-row button {
-            background-color: #FF4F00;
-            border: none;
-            border-radius: 50%;
-            width: 28px;
-            height: 28px;
-            color: #fff;
-            font-size: 1rem;
-            cursor: pointer;
-        }
-        .poi-row button:hover {
-            background-color: #d84400;
-        }
+
         input[type=number]::-webkit-inner-spin-button,
         input[type=number]::-webkit-outer-spin-button {
             -webkit-appearance: none;
@@ -331,25 +400,34 @@
         <h2>Location</h2>
         <form id="coordinateForm">
             <div class="input-row">
-                <input 
-                    type="text" 
-                    id="title" 
-                    name="title" 
-                    placeholder="Enter title"
-                >
-                <input 
-                    type="text" 
-                    id="coordinates" 
-                    name="coordinates" 
-                    placeholder="Enter coordinates (e.g., 40.68920°N, 74.04454°W)"
-                >
+                <div class="input-wrapper" data-label="Title">
+                    <input 
+                        type="text" 
+                        id="title" 
+                        name="title" 
+                        placeholder="Enter title"
+                    >
+                    <div class="hover-overlay"></div>
+                </div>
+                <div class="input-wrapper" data-label="Coordinates">
+                    <input 
+                        type="text" 
+                        id="coordinates" 
+                        name="coordinates" 
+                        placeholder="Enter coordinates (e.g., 40.68920°N, 74.04454°W)"
+                    >
+                    <div class="hover-overlay"></div>
+                </div>
             </div>
-            <input 
-                type="text" 
-                id="takeoffCoordinates" 
-                name="takeoffCoordinates" 
-                placeholder="Separate takeoff coordinates (optional)"
-            >
+            <div class="input-wrapper" data-label="Takeoff Coordinates">
+                <input 
+                    type="text" 
+                    id="takeoffCoordinates" 
+                    name="takeoffCoordinates" 
+                    placeholder="Separate takeoff coordinates (optional)"
+                >
+                <div class="hover-overlay"></div>
+            </div>
 
             <h2>Flight</h2>
             <div class="pill-toggle" id="modeToggle" data-mode="standard">
@@ -377,51 +455,67 @@
                     </div>
                 </div>
                 <div class="input-row">
-                    <input 
-                        type="number" 
-                        id="minHeight" 
-                        name="minHeight" 
-                        placeholder="Min height (default: 100ft)" 
-                        step="any"
-                    >
-                    <input 
-                        type="number" 
-                        id="maxHeight" 
-                        name="maxHeight" 
-                        placeholder="Max height (optional)" 
-                        step="any"
-                    >
+                    <div class="input-wrapper" data-label="Min Height">
+                        <input 
+                            type="number" 
+                            id="minHeight" 
+                            name="minHeight" 
+                            placeholder="Min height (default: 100ft)" 
+                            step="any"
+                        >
+                        <div class="hover-overlay"></div>
+                    </div>
+                    <div class="input-wrapper" data-label="Max Height">
+                        <input 
+                            type="number" 
+                            id="maxHeight" 
+                            name="maxHeight" 
+                            placeholder="Max height (optional)" 
+                            step="any"
+                        >
+                        <div class="hover-overlay"></div>
+                    </div>
                 </div>
-                <input 
-                    type="number" 
-                    id="batteryCapacity" 
-                    name="batteryCapacity" 
-                    placeholder="Battery capacity (default: 20min)" 
-                    step="any"
-                >
+                <div class="input-wrapper" data-label="Battery Capacity">
+                    <input 
+                        type="number" 
+                        id="batteryCapacity" 
+                        name="batteryCapacity" 
+                        placeholder="Battery capacity (default: 20min)" 
+                        step="any"
+                    >
+                    <div class="hover-overlay"></div>
+                </div>
             </div>
 
             <!-- Advanced Mode UI -->
             <div id="advancedModeUI" style="display:none;">
                 <div class="input-row">
-                    <input 
-                        type="number" 
-                        id="numLoops" 
-                        name="numLoops" 
-                        placeholder="Loops (default: 3)" 
-                        min="1" 
-                        step="1"
-                    >
-                    <input 
-                        type="number" 
-                        id="initialRadius" 
-                        name="initialRadius" 
-                        placeholder="Initial radius (default: 200ft)" 
-                        step="any"
-                    >
+                    <div class="input-wrapper" data-label="Number of Loops">
+                        <input 
+                            type="number" 
+                            id="numLoops" 
+                            name="numLoops" 
+                            placeholder="Loops (default: 3)" 
+                            min="1" 
+                            step="1"
+                        >
+                        <div class="hover-overlay"></div>
+                    </div>
+                    <div class="input-wrapper" data-label="Initial Radius">
+                        <input 
+                            type="number" 
+                            id="initialRadius" 
+                            name="initialRadius" 
+                            placeholder="Initial radius (default: 200ft)" 
+                            step="any"
+                        >
+                        <div class="hover-overlay"></div>
+                    </div>
                 </div>
+                <!-- Radius increment row -->
                 <div class="input-row">
-                    <div>
+                    <div class="input-wrapper" data-label="Radius Increment">
                         <input 
                             type="number" 
                             id="radiusIncrement" 
@@ -429,12 +523,19 @@
                             placeholder="Radius increment (default: 50ft)" 
                             step="any"
                         >
-                        <label class="toggle-label" for="exponentialRadius">
-                            <input type="checkbox" id="exponentialRadius">
-                            Exponential
-                        </label>
+                        <div class="hover-overlay"></div>
                     </div>
-                    <div>
+                    <label class="ios-toggle-container">
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="exponentialRadius">
+                            <span class="slider"></span>
+                        </div>
+                        <span class="toggle-text">Exponential</span>
+                    </label>
+                </div>
+                <!-- Height increment row -->
+                <div class="input-row">
+                    <div class="input-wrapper" data-label="Height Increment">
                         <input 
                             type="number" 
                             id="aglIncrement" 
@@ -442,42 +543,58 @@
                             placeholder="Height increment (default: 20ft)" 
                             step="any"
                         >
-                        <label class="toggle-label" for="exponentialAGL">
-                            <input type="checkbox" id="exponentialAGL">
-                            Exponential
-                        </label>
+                        <div class="hover-overlay"></div>
                     </div>
+                    <label class="ios-toggle-container">
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="exponentialAGL">
+                            <span class="slider"></span>
+                        </div>
+                        <span class="toggle-text">Exponential</span>
+                    </label>
                 </div>
                 <div class="input-row">
-                    <input 
-                        type="number" 
-                        id="initialAGL" 
-                        name="initialAGL" 
-                        placeholder="Min height (default: 150ft)" 
-                        step="any"
-                    >
-                    <input 
-                        type="number" 
-                        id="startPointAltitude" 
-                        name="startPointAltitude" 
-                        placeholder="Start point altitude (default: 70ft)" 
-                        step="any"
-                    >
+                    <div class="input-wrapper" data-label="Initial AGL">
+                        <input 
+                            type="number" 
+                            id="initialAGL" 
+                            name="initialAGL" 
+                            placeholder="Min height (default: 150ft)" 
+                            step="any"
+                        >
+                        <div class="hover-overlay"></div>
+                    </div>
+                    <div class="input-wrapper" data-label="Start Point Altitude">
+                        <input 
+                            type="number" 
+                            id="startPointAltitude" 
+                            name="startPointAltitude" 
+                            placeholder="Start point altitude (default: 70ft)" 
+                            step="any"
+                        >
+                        <div class="hover-overlay"></div>
+                    </div>
                 </div>
-                <input 
-                    type="number" 
-                    id="poiAltitude" 
-                    name="poiAltitude" 
-                    placeholder="POI altitude (default: 0ft)" 
-                    step="any"
-                >
+                <div class="input-wrapper" data-label="POI Altitude">
+                    <input 
+                        type="number" 
+                        id="poiAltitude" 
+                        name="poiAltitude" 
+                        placeholder="POI altitude (default: 0ft)" 
+                        step="any"
+                    >
+                    <div class="hover-overlay"></div>
+                </div>
             </div>
 
             <div id="poiSection" style="display:none;">
                 <h2>Points of Interest</h2>
-                <label class="toggle-label" style="margin-bottom: 10px;">
-                    <input type="checkbox" id="poiModeToggle">
-                    Use Gimbal Tilt Control Instead of POI Elevation
+                <label class="ios-toggle-container">
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="poiModeToggle">
+                        <span class="slider"></span>
+                    </div>
+                    <span class="toggle-text">Use Gimbal Tilt Control Instead of POI Elevation</span>
                 </label>
             </div>
             <button type="button" id="addPoiButton" style="display:none;">Add POI</button>
@@ -494,11 +611,64 @@
 
     <script>
         let poiCount = 0;
+        let hoverTimer = null;
+
         const modeToggle = document.getElementById('modeToggle');
         const standardModeUI = document.getElementById('standardModeUI');
         const advancedModeUI = document.getElementById('advancedModeUI');
         const poiSection = document.getElementById('poiSection');
         const addPoiButton = document.getElementById('addPoiButton');
+
+        // 1) Setup the text-field hover logic (0.45s delay).
+        document.querySelectorAll('.input-wrapper').forEach((wrapper) => {
+            const inputElem = wrapper.querySelector('input');
+            const overlay = wrapper.querySelector('.hover-overlay');
+            const labelText = wrapper.getAttribute('data-label') || '';
+            overlay.innerHTML = labelText;
+
+            inputElem.addEventListener('mouseenter', () => {
+                if (inputElem.value.trim() !== '') {
+                    hoverTimer = setTimeout(() => {
+                        wrapper.classList.add('hover-active');
+                    }, 450);
+                }
+            });
+            inputElem.addEventListener('mouseleave', () => {
+                clearTimeout(hoverTimer);
+                wrapper.classList.remove('hover-active');
+            });
+            // If user clicks/focuses, hide the overlay:
+            inputElem.addEventListener('focus', () => {
+                clearTimeout(hoverTimer);
+                wrapper.classList.remove('hover-active');
+            });
+        });
+
+        // 2) Slider fraction => default Advanced values.
+        function getAdvancedValuesFromSliderFraction(fraction) {
+            // fraction in [0..1]
+            // Loops: 3..17
+            const loops = Math.round(3 + (17 - 3) * fraction);
+            // Initial radius: 100..300
+            const initRadius = Math.round(100 + (300 - 100) * fraction);
+            // Radius increment: 20..80
+            const radInc = Math.round(20 + (80 - 20) * fraction);
+            // Height increment: 10..50
+            const incAGL = Math.round(10 + (50 - 10) * fraction);
+            // Initial AGL: 100..300
+            const startAGL = Math.round(100 + (300 - 100) * fraction);
+            // Start point altitude: 50..150
+            const startAlt = Math.round(50 + (150 - 50) * fraction);
+
+            return {
+                loops,
+                initRadius,
+                radInc,
+                incAGL,
+                startAGL,
+                startAlt
+            };
+        }
 
         function setGeneratorMode(mode) {
             if (mode === 'standard') {
@@ -513,6 +683,16 @@
                 advancedModeUI.style.display = 'block';
                 poiSection.style.display = 'block';
                 addPoiButton.style.display = 'inline-block';
+
+                // Pre-fill advanced fields based on the slider fraction
+                const fraction = getSliderFraction();
+                const advVals = getAdvancedValuesFromSliderFraction(fraction);
+                document.getElementById("numLoops").value = advVals.loops;
+                document.getElementById("initialRadius").value = advVals.initRadius;
+                document.getElementById("radiusIncrement").value = advVals.radInc;
+                document.getElementById("aglIncrement").value = advVals.incAGL;
+                document.getElementById("initialAGL").value = advVals.startAGL;
+                document.getElementById("startPointAltitude").value = advVals.startAlt;
             }
         }
 
@@ -523,49 +703,105 @@
             row.classList.add('poi-row');
 
             const poiLabel = document.createElement('span');
+            poiLabel.classList.add('poi-row-title');
             poiLabel.textContent = `POI ${poiCount}`;
+            row.appendChild(poiLabel);
 
+            // POI altitude
+            const poiAltitudeWrap = document.createElement('div');
+            poiAltitudeWrap.classList.add('input-wrapper');
+            poiAltitudeWrap.setAttribute('data-label', 'POI Altitude');
             const poiAltitudeInput = document.createElement('input');
             poiAltitudeInput.type = 'number';
             poiAltitudeInput.name = `poiAltitude${poiCount}`;
             poiAltitudeInput.placeholder = 'POI Altitude Ft';
             poiAltitudeInput.step = 'any';
+            const overlayAlt = document.createElement('div');
+            overlayAlt.classList.add('hover-overlay');
+            poiAltitudeWrap.appendChild(poiAltitudeInput);
+            poiAltitudeWrap.appendChild(overlayAlt);
+            row.appendChild(poiAltitudeWrap);
 
-            const appliesToLabel = document.createElement('span');
-            appliesToLabel.textContent = 'POI Applies to:';
+            // "From" and "To" fields in one row
+            const loopRangeContainer = document.createElement('div');
+            loopRangeContainer.classList.add('input-row');
 
+            const loopFromWrap = document.createElement('div');
+            loopFromWrap.classList.add('input-wrapper');
+            loopFromWrap.setAttribute('data-label', 'From Loop');
             const loopFromInput = document.createElement('input');
             loopFromInput.type = 'number';
             loopFromInput.name = `poiLoopFrom${poiCount}`;
             loopFromInput.placeholder = 'From Loop';
             loopFromInput.min = '1';
             loopFromInput.step = '1';
+            const overlayFrom = document.createElement('div');
+            overlayFrom.classList.add('hover-overlay');
+            loopFromWrap.appendChild(loopFromInput);
+            loopFromWrap.appendChild(overlayFrom);
 
             const toLabel = document.createElement('span');
+            toLabel.style.display = 'flex';
+            toLabel.style.alignItems = 'center';
+            toLabel.style.color = '#fff';
             toLabel.textContent = 'to';
 
+            const loopToWrap = document.createElement('div');
+            loopToWrap.classList.add('input-wrapper');
+            loopToWrap.setAttribute('data-label', 'To Loop');
             const loopToInput = document.createElement('input');
             loopToInput.type = 'number';
             loopToInput.name = `poiLoopTo${poiCount}`;
             loopToInput.placeholder = 'To Loop';
             loopToInput.min = '1';
             loopToInput.step = '1';
+            const overlayTo = document.createElement('div');
+            overlayTo.classList.add('hover-overlay');
+            loopToWrap.appendChild(loopToInput);
+            loopToWrap.appendChild(overlayTo);
 
+            loopRangeContainer.appendChild(loopFromWrap);
+            loopRangeContainer.appendChild(toLabel);
+            loopRangeContainer.appendChild(loopToWrap);
+            row.appendChild(loopRangeContainer);
+
+            const actions = document.createElement('div');
+            actions.classList.add('poi-row-actions');
             const deleteBtn = document.createElement('button');
-            deleteBtn.textContent = 'X';
+            deleteBtn.textContent = 'Delete POI';
+            deleteBtn.classList.add('delete-poi-button');
             deleteBtn.addEventListener('click', () => {
                 row.remove();
             });
-
-            row.appendChild(poiLabel);
-            row.appendChild(poiAltitudeInput);
-            row.appendChild(appliesToLabel);
-            row.appendChild(loopFromInput);
-            row.appendChild(toLabel);
-            row.appendChild(loopToInput);
-            row.appendChild(deleteBtn);
+            actions.appendChild(deleteBtn);
+            row.appendChild(actions);
 
             poiSection.appendChild(row);
+
+            // Re-bind the hover logic for new inputs
+            const newInputs = row.querySelectorAll('.input-wrapper');
+            newInputs.forEach((wrapper) => {
+                const inputElem = wrapper.querySelector('input');
+                const overlay = wrapper.querySelector('.hover-overlay');
+                const labelText = wrapper.getAttribute('data-label') || '';
+                overlay.innerHTML = labelText;
+
+                inputElem.addEventListener('mouseenter', () => {
+                    if (inputElem.value.trim() !== '') {
+                        hoverTimer = setTimeout(() => {
+                            wrapper.classList.add('hover-active');
+                        }, 450);
+                    }
+                });
+                inputElem.addEventListener('mouseleave', () => {
+                    clearTimeout(hoverTimer);
+                    wrapper.classList.remove('hover-active');
+                });
+                inputElem.addEventListener('focus', () => {
+                    clearTimeout(hoverTimer);
+                    wrapper.classList.remove('hover-active');
+                });
+            });
         }
 
         function getSliderFraction() {
@@ -584,7 +820,6 @@
             logDiv.innerHTML = '';
             resultDiv.innerHTML = '';
 
-            // Gather all user input
             const payload = {
                 title: document.getElementById("title").value.trim() || 'untitled',
                 coordinates: document.getElementById("coordinates").value.trim(),
@@ -620,105 +855,98 @@
                 });
             }
 
-   try {
-    console.log("Starting API call with payload:", payload); // Log the payload being sent
+            try {
+                console.log("Starting API call with payload:", payload);
 
-    // *** CALL YOUR AWS LAMBDA ENDPOINT HERE ***
-    const lambdaUrl = "https://2sgk99b5pg.execute-api.us-west-2.amazonaws.com/dev/DronePathREST";
-    const response = await fetch(lambdaUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-});
+                // *** CALL YOUR AWS LAMBDA ENDPOINT HERE ***
+                const lambdaUrl = "https://2sgk99b5pg.execute-api.us-west-2.amazonaws.com/dev/DronePathREST";
+                const response = await fetch(lambdaUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                });
 
-console.log("API call completed. Response status:", response.status);
+                console.log("API call completed. Response status:", response.status);
 
-if (!response.ok) {
-    throw new Error(`Lambda request failed: ${response.status}`);
-}
+                if (!response.ok) {
+                    throw new Error(`Lambda request failed: ${response.status}`);
+                }
 
-// Parse response and ensure `body` is parsed if necessary
-const rawData = await response.json();
-console.log("Raw API response:", rawData);
+                const rawData = await response.json();
+                console.log("Raw API response:", rawData);
 
-const data = typeof rawData.body === "string" ? JSON.parse(rawData.body) : rawData.body;
-console.log("Parsed API response body:", data);
+                const data = typeof rawData.body === "string" ? JSON.parse(rawData.body) : rawData.body;
+                console.log("Parsed API response body:", data);
 
-// Process logs from API
-if (data.logs) {
-    console.log("Processing logs from API response...");
-    data.logs.forEach(entry => {
-        log(entry.title, entry.msg); // Log each entry to the UI log
-        console.log("Log entry:", entry); // Log details in the console
-    });
-}
+                if (data.logs) {
+                    console.log("Processing logs from API response...");
+                    data.logs.forEach(entry => {
+                        log(entry.title, entry.msg);
+                        console.log("Log entry:", entry);
+                    });
+                }
 
-// Handle errors in response
-if (data.error) {
-    console.error("Error from API:", data.error); // Log the API error
-    throw new Error(data.error);
-}
+                if (data.error) {
+                    console.error("Error from API:", data.error);
+                    throw new Error(data.error);
+                }
 
-// Show elevation message or summary
-if (data.elevationMsg) {
-    console.log("Elevation message:", data.elevationMsg);
-    resultDiv.innerHTML = data.elevationMsg;
-} else {
-    console.log("No elevation message received.");
-}
+                if (data.elevationMsg) {
+                    console.log("Elevation message:", data.elevationMsg);
+                    resultDiv.innerHTML = data.elevationMsg;
+                } else {
+                    console.log("No elevation message received.");
+                }
 
-// Show estimated flight time
-if (typeof data.totalFlightTimeMinutes !== "undefined") {
-    console.log("Total flight time (minutes):", data.totalFlightTimeMinutes);
-    flightTimeDiv.style.display = "block";
-    flightTimeDiv.innerHTML = `Estimated Total Flight Time: ${data.totalFlightTimeMinutes.toFixed(2)} minutes`;
-} else {
-    console.log("No flight time data received.");
-}
+                if (typeof data.totalFlightTimeMinutes !== "undefined") {
+                    console.log("Total flight time (minutes):", data.totalFlightTimeMinutes);
+                    flightTimeDiv.style.display = "block";
+                    flightTimeDiv.innerHTML = `Estimated Total Flight Time: ${data.totalFlightTimeMinutes.toFixed(2)} minutes`;
+                } else {
+                    console.log("No flight time data received.");
+                }
 
-// Enable Master CSV download button
-if (data.masterWaypoints && data.masterWaypoints.length) {
-    console.log("Master waypoints found. Enabling download button.");
-    downloadMasterBtn.style.display = "inline-block";
-    const titleSafe = sanitizeTitle(data.title || 'untitled');
-    downloadMasterBtn.onclick = function() {
-        downloadCSV(data.masterWaypoints, `${titleSafe}-master.csv`);
-        log('Download:', `${titleSafe}-master.csv has been downloaded.`);
-    };
-} else {
-    console.log("No master waypoints found.");
-    downloadMasterBtn.style.display = "none";
-}
+                if (data.masterWaypoints && data.masterWaypoints.length) {
+                    console.log("Master waypoints found. Enabling download button.");
+                    downloadMasterBtn.style.display = "inline-block";
+                    const titleSafe = sanitizeTitle(data.title || 'untitled');
+                    downloadMasterBtn.onclick = function() {
+                        downloadCSV(data.masterWaypoints, `${titleSafe}-master.csv`);
+                        log('Download:', `${titleSafe}-master.csv has been downloaded.`);
+                    };
+                } else {
+                    console.log("No master waypoints found.");
+                    downloadMasterBtn.style.display = "none";
+                }
 
-// Handle segment downloads
-if (data.segments && data.segments.length) {
-    console.log(`Found ${data.segments.length} flight segments. Displaying download buttons.`);
-    segmentDownloadsDiv.style.display = "block";
-    segmentDownloadsDiv.innerHTML = `<p>Flight Segments (${data.segments.length}):</p>`;
-    data.segments.forEach((segment, idx) => {
-        const btn = document.createElement('button');
-        btn.textContent = `Download Segment ${idx + 1}`;
-        btn.style.marginRight = "5px";
-        const titleSafe = sanitizeTitle(data.title || 'untitled');
-        btn.onclick = () => {
-            downloadCSV(segment, `${titleSafe}-segment-${idx + 1}.csv`);
-            log('Download:', `${titleSafe}-segment-${idx + 1}.csv has been downloaded.`);
-        };
-        segmentDownloadsDiv.appendChild(btn);
-    });
-} else {
-    console.log("No segments found in API response.");
-    segmentDownloadsDiv.style.display = "none";
-}
+                if (data.segments && data.segments.length) {
+                    console.log(`Found ${data.segments.length} flight segments. Displaying download buttons.`);
+                    segmentDownloadsDiv.style.display = "block";
+                    segmentDownloadsDiv.innerHTML = `<p>Flight Segments (${data.segments.length}):</p>`;
+                    data.segments.forEach((segment, idx) => {
+                        const btn = document.createElement('button');
+                        btn.textContent = `Download Segment ${idx + 1}`;
+                        btn.style.marginRight = "5px";
+                        const titleSafe = sanitizeTitle(data.title || 'untitled');
+                        btn.onclick = () => {
+                            downloadCSV(segment, `${titleSafe}-segment-${idx + 1}.csv`);
+                            log('Download:', `${titleSafe}-segment-${idx + 1}.csv has been downloaded.`);
+                        };
+                        segmentDownloadsDiv.appendChild(btn);
+                    });
+                } else {
+                    console.log("No segments found in API response.");
+                    segmentDownloadsDiv.style.display = "none";
+                }
 
-} catch (error) {
-    console.error("Error caught in try-catch block:", error.message); // Log the error to console
-    resultDiv.innerHTML = `Error: ${error.message}`;
-    log('Error:', error.message);
-    downloadMasterBtn.style.display = "none";
-    flightTimeDiv.style.display = "none";
-    segmentDownloadsDiv.style.display = "none";
-}
+            } catch (error) {
+                console.error("Error caught in try-catch block:", error.message);
+                resultDiv.innerHTML = `Error: ${error.message}`;
+                log('Error:', error.message);
+                downloadMasterBtn.style.display = "none";
+                flightTimeDiv.style.display = "none";
+                segmentDownloadsDiv.style.display = "none";
+            }
 
         });
 
