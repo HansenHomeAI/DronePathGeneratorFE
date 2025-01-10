@@ -626,84 +626,91 @@
     // *** CALL YOUR AWS LAMBDA ENDPOINT HERE ***
     const lambdaUrl = "https://2sgk99b5pg.execute-api.us-west-2.amazonaws.com/dev/DronePathREST";
     const response = await fetch(lambdaUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+});
+
+console.log("API call completed. Response status:", response.status);
+
+if (!response.ok) {
+    throw new Error(`Lambda request failed: ${response.status}`);
+}
+
+// Parse response and ensure `body` is parsed if necessary
+const rawData = await response.json();
+console.log("Raw API response:", rawData);
+
+const data = typeof rawData.body === "string" ? JSON.parse(rawData.body) : rawData.body;
+console.log("Parsed API response body:", data);
+
+// Process logs from API
+if (data.logs) {
+    console.log("Processing logs from API response...");
+    data.logs.forEach(entry => {
+        log(entry.title, entry.msg); // Log each entry to the UI log
+        console.log("Log entry:", entry); // Log details in the console
     });
+}
 
-    console.log("API call completed. Response status:", response.status); // Log response status
+// Handle errors in response
+if (data.error) {
+    console.error("Error from API:", data.error); // Log the API error
+    throw new Error(data.error);
+}
 
-    if (!response.ok) {
-        throw new Error(`Lambda request failed: ${response.status}`);
-    }
+// Show elevation message or summary
+if (data.elevationMsg) {
+    console.log("Elevation message:", data.elevationMsg);
+    resultDiv.innerHTML = data.elevationMsg;
+} else {
+    console.log("No elevation message received.");
+}
 
-    const data = await response.json();
-    console.log("API response received:", data); // Log the full response data
+// Show estimated flight time
+if (typeof data.totalFlightTimeMinutes !== "undefined") {
+    console.log("Total flight time (minutes):", data.totalFlightTimeMinutes);
+    flightTimeDiv.style.display = "block";
+    flightTimeDiv.innerHTML = `Estimated Total Flight Time: ${data.totalFlightTimeMinutes.toFixed(2)} minutes`;
+} else {
+    console.log("No flight time data received.");
+}
 
-    // Process logs from API
-    if (data.logs) {
-        console.log("Processing logs from API response...");
-        data.logs.forEach(entry => {
-            log(entry.title, entry.msg); // Log each entry to the UI log
-            console.log("Log entry:", entry); // Log details in the console
-        });
-    }
+// Enable Master CSV download button
+if (data.masterWaypoints && data.masterWaypoints.length) {
+    console.log("Master waypoints found. Enabling download button.");
+    downloadMasterBtn.style.display = "inline-block";
+    const titleSafe = sanitizeTitle(data.title || 'untitled');
+    downloadMasterBtn.onclick = function() {
+        downloadCSV(data.masterWaypoints, `${titleSafe}-master.csv`);
+        log('Download:', `${titleSafe}-master.csv has been downloaded.`);
+    };
+} else {
+    console.log("No master waypoints found.");
+    downloadMasterBtn.style.display = "none";
+}
 
-    // Handle errors in response
-    if (data.error) {
-        console.error("Error from API:", data.error); // Log the API error
-        throw new Error(data.error);
-    }
-
-    // Show elevation message or summary
-    if (data.elevationMsg) {
-        console.log("Elevation message:", data.elevationMsg);
-        resultDiv.innerHTML = data.elevationMsg;
-    }
-
-    // Show estimated flight time
-    if (typeof data.totalFlightTimeMinutes !== "undefined") {
-        console.log("Total flight time (minutes):", data.totalFlightTimeMinutes);
-        flightTimeDiv.style.display = "block";
-        flightTimeDiv.innerHTML = `Estimated Total Flight Time: ${data.totalFlightTimeMinutes.toFixed(2)} minutes`;
-    } else {
-        console.log("No flight time data received.");
-    }
-
-    // Enable Master CSV download button
-    if (data.masterWaypoints && data.masterWaypoints.length) {
-        console.log("Master waypoints found. Enabling download button.");
-        downloadMasterBtn.style.display = "inline-block";
-        const titleSafe = sanitizeTitle(data.title);
-        downloadMasterBtn.onclick = function() {
-            downloadCSV(data.masterWaypoints, `${titleSafe}-master.csv`);
-            log('Download:', `${titleSafe}-master.csv has been downloaded.`);
+// Handle segment downloads
+if (data.segments && data.segments.length) {
+    console.log(`Found ${data.segments.length} flight segments. Displaying download buttons.`);
+    segmentDownloadsDiv.style.display = "block";
+    segmentDownloadsDiv.innerHTML = `<p>Flight Segments (${data.segments.length}):</p>`;
+    data.segments.forEach((segment, idx) => {
+        const btn = document.createElement('button');
+        btn.textContent = `Download Segment ${idx + 1}`;
+        btn.style.marginRight = "5px";
+        const titleSafe = sanitizeTitle(data.title || 'untitled');
+        btn.onclick = () => {
+            downloadCSV(segment, `${titleSafe}-segment-${idx + 1}.csv`);
+            log('Download:', `${titleSafe}-segment-${idx + 1}.csv has been downloaded.`);
         };
-    } else {
-        console.log("No master waypoints found.");
-        downloadMasterBtn.style.display = "none";
-    }
+        segmentDownloadsDiv.appendChild(btn);
+    });
+} else {
+    console.log("No segments found in API response.");
+    segmentDownloadsDiv.style.display = "none";
+}
 
-    // Handle segment downloads
-    if (data.segments && data.segments.length) {
-        console.log(`Found ${data.segments.length} flight segments. Displaying download buttons.`);
-        segmentDownloadsDiv.style.display = "block";
-        segmentDownloadsDiv.innerHTML = `<p>Flight Segments (${data.segments.length}):</p>`;
-        data.segments.forEach((segment, idx) => {
-            const btn = document.createElement('button');
-            btn.textContent = `Download Segment ${idx + 1}`;
-            btn.style.marginRight = "5px";
-            const titleSafe = sanitizeTitle(data.title);
-            btn.onclick = () => {
-                downloadCSV(segment, `${titleSafe}-segment-${idx + 1}.csv`);
-                log('Download:', `${titleSafe}-segment-${idx + 1}.csv has been downloaded.`);
-            };
-            segmentDownloadsDiv.appendChild(btn);
-        });
-    } else {
-        console.log("No segments found in API response.");
-        segmentDownloadsDiv.style.display = "none";
-    }
 } catch (error) {
     console.error("Error caught in try-catch block:", error.message); // Log the error to console
     resultDiv.innerHTML = `Error: ${error.message}`;
