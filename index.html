@@ -128,7 +128,6 @@
             position: relative;
             width: 50px;
             height: 24px;
-            /* ADDED below to prevent the slider track from shrinking */
             flex-shrink: 0;
         }
         .toggle-switch input[type="checkbox"] {
@@ -384,6 +383,21 @@
             -webkit-appearance: none;
             margin: 0;
         }
+
+        /* Spinner styling */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
         @media (max-width: 480px) {
             .container {
                 width: 95%;
@@ -600,7 +614,7 @@
             <button type="button" id="addPoiButton" style="display:none;">Add POI</button>
 
             <h2>Download</h2>
-            <button type="submit">Generate flight path</button>
+            <button type="submit" id="generateButton">Generate flight path</button>
             <div id="result"></div>
             <button id="downloadMasterBtn" style="display:none;">Download Master Flight Path CSV</button>
             <div id="segmentDownloads" class="segment-downloads" style="display:none;"></div>
@@ -812,6 +826,13 @@
         document.getElementById("coordinateForm").addEventListener("submit", async function(event) {
             event.preventDefault();
 
+            const generateBtn = document.getElementById("generateButton");
+            const originalBtnText = generateBtn.textContent;
+
+            // Show spinner, clear the button text, and disable the button
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = `<div class="spinner"></div>`;
+
             const resultDiv = document.getElementById("result");
             const downloadMasterBtn = document.getElementById("downloadMasterBtn");
             const flightTimeDiv = document.getElementById("flightTime");
@@ -878,15 +899,14 @@
                 const data = typeof rawData.body === "string" ? JSON.parse(rawData.body) : rawData.body;
                 console.log("Parsed API response body:", data);
 
-// Process logs from API
-if (data && data.logs) {
-    console.log("Processing logs from API response...");
-    data.logs.forEach(entry => {
-        log(entry.title, entry.msg);
-        console.log("Log entry:", entry);
-    });
-}
-
+                // Process logs from API
+                if (data && data.logs) {
+                    console.log("Processing logs from API response...");
+                    data.logs.forEach(entry => {
+                        log(entry.title, entry.msg);
+                        console.log("Log entry:", entry);
+                    });
+                }
 
                 if (data.error) {
                     console.error("Error from API:", data.error);
@@ -948,6 +968,10 @@ if (data && data.logs) {
                 downloadMasterBtn.style.display = "none";
                 flightTimeDiv.style.display = "none";
                 segmentDownloadsDiv.style.display = "none";
+            } finally {
+                // Revert the button to its original state
+                generateBtn.innerHTML = originalBtnText;
+                generateBtn.disabled = false;
             }
 
         });
