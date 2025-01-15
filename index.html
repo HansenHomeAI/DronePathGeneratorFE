@@ -589,12 +589,26 @@
                         <div class="hover-overlay"></div>
                     </div>
                 </div>
-                <div class="input-wrapper" data-label="POI Altitude">
+
+                <!-- POI Gimbal Tilt (formerly poiAltitude) -->
+                <div class="input-wrapper" data-label="POI Gimbal Tilt (degrees)">
                     <input 
                         type="number" 
                         id="poiAltitude" 
                         name="poiAltitude" 
-                        placeholder="POI altitude (default: 0ft)" 
+                        placeholder="POI Gimbal Tilt (°) (default: -25)" 
+                        step="any"
+                    >
+                    <div class="hover-overlay"></div>
+                </div>
+
+                <!-- New Battery Capacity in advanced mode -->
+                <div class="input-wrapper" data-label="Battery Capacity">
+                    <input 
+                        type="number" 
+                        id="batteryCapacityAdvanced" 
+                        name="batteryCapacityAdvanced" 
+                        placeholder="Battery capacity (default: 20min)" 
                         step="any"
                     >
                     <div class="hover-overlay"></div>
@@ -608,7 +622,8 @@
                         <input type="checkbox" id="poiModeToggle">
                         <span class="slider"></span>
                     </div>
-                    <span class="toggle-text">Use Gimbal Tilt Control Instead of POI Elevation</span>
+                    <!-- Swapped label text -->
+                    <span class="toggle-text">Use POI Elevation Instead of Gimbal Tilt Control</span>
                 </label>
             </div>
             <button type="button" id="addPoiButton" style="display:none;">Add POI</button>
@@ -721,14 +736,14 @@
             poiLabel.textContent = `POI ${poiCount}`;
             row.appendChild(poiLabel);
 
-            // POI altitude
+            // POI gimbal tilt
             const poiAltitudeWrap = document.createElement('div');
             poiAltitudeWrap.classList.add('input-wrapper');
-            poiAltitudeWrap.setAttribute('data-label', 'POI Altitude');
+            poiAltitudeWrap.setAttribute('data-label', 'POI Gimbal Tilt (degrees)');
             const poiAltitudeInput = document.createElement('input');
             poiAltitudeInput.type = 'number';
             poiAltitudeInput.name = `poiAltitude${poiCount}`;
-            poiAltitudeInput.placeholder = 'POI Altitude Ft';
+            poiAltitudeInput.placeholder = 'POI Gimbal Tilt (°)';
             poiAltitudeInput.step = 'any';
             const overlayAlt = document.createElement('div');
             overlayAlt.classList.add('hover-overlay');
@@ -841,6 +856,12 @@
             logDiv.innerHTML = '';
             resultDiv.innerHTML = '';
 
+            // Decide which battery field to read from:
+            let batteryVal = document.getElementById("batteryCapacity").value.trim();
+            if (modeToggle.getAttribute('data-mode') === 'advanced') {
+                batteryVal = document.getElementById("batteryCapacityAdvanced").value.trim();
+            }
+
             const payload = {
                 title: document.getElementById("title").value.trim() || 'untitled',
                 coordinates: document.getElementById("coordinates").value.trim(),
@@ -849,7 +870,7 @@
                 sliderFraction: getSliderFraction(),
                 minHeight: document.getElementById("minHeight").value.trim(),
                 maxHeight: document.getElementById("maxHeight").value.trim(),
-                batteryCapacity: document.getElementById("batteryCapacity").value.trim(),
+                batteryCapacity: batteryVal,
                 numLoops: document.getElementById("numLoops").value.trim(),
                 initialRadius: document.getElementById("initialRadius").value.trim(),
                 radiusIncrement: document.getElementById("radiusIncrement").value.trim(),
