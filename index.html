@@ -590,17 +590,7 @@
                     </div>
                 </div>
 
-                <!-- POI Gimbal Tilt (formerly poiAltitude) -->
-                <div class="input-wrapper" data-label="POI Gimbal Tilt (degrees)">
-                    <input 
-                        type="number" 
-                        id="poiAltitude" 
-                        name="poiAltitude" 
-                        placeholder="POI Gimbal Tilt (°) (default: -25)" 
-                        step="any"
-                    >
-                    <div class="hover-overlay"></div>
-                </div>
+                <!-- (Removed the POI Gimbal Tilt text field here) -->
 
                 <!-- New Battery Capacity in advanced mode -->
                 <div class="input-wrapper" data-label="Battery Capacity">
@@ -879,7 +869,7 @@
                 exponentialAGL: document.getElementById("exponentialAGL").checked,
                 initialAGL: document.getElementById("initialAGL").value.trim(),
                 startPointAltitude: document.getElementById("startPointAltitude").value.trim(),
-                poiAltitude: document.getElementById("poiAltitude").value.trim(),
+                /* Removed the poiAltitude line */
                 useGimbalTiltMode: document.getElementById("poiModeToggle").checked,
                 poiRows: []
             };
