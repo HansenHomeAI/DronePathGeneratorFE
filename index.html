@@ -870,7 +870,7 @@
                 initialAGL: document.getElementById("initialAGL").value.trim(),
                 startPointAltitude: document.getElementById("startPointAltitude").value.trim(),
                 /* Removed the poiAltitude line */
-                useGimbalTiltMode: document.getElementById("poiModeToggle").checked,
+                useGimbalTiltMode: !document.getElementById("poiModeToggle").checked,
                 poiRows: []
             };
 
