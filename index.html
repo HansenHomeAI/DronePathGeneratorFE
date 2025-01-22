@@ -28,7 +28,7 @@
             backdrop-filter: blur(30px);
             -webkit-backdrop-filter: blur(30px);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-            position: relative;
+            position: relative; /* for absolute positioning of tooltips */
         }
         h1, h2, label {
             text-shadow: 0 3px 16px rgba(0,0,0,0.8);
@@ -117,7 +117,7 @@
             position: relative;
             min-height: 46px;
             box-sizing: border-box;
-            flex: 0; /* keep toggles from expanding */
+            flex: 0;
         }
         .ios-toggle-container .toggle-text {
             font-size: 1rem;
@@ -403,15 +403,90 @@
                 width: 95%;
                 margin: 40px auto;
                 padding: 15px;
+                position: relative;
             }
+        }
+
+        /* =========== INFO ICON & TOOLTIP ADJUSTMENTS =========== */
+        .info-pill-icon {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            color: #fff;
+            text-transform: uppercase;
+            user-select: none;
+            position: relative;
+            top: -2px; /* shift up slightly */
+        }
+        /* ADDED HOVER STATE FOR INFO ICON */
+        .info-pill-icon:hover {
+            background: #FF4F00;
+            color: #fff;
+        }
+
+        .info-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-left: 8px;
+        }
+
+        /* The tooltip itself is horizontally centered in .container by default, 
+           but we calculate arrow offset dynamically */
+        .info-tooltip {
+            display: none;
+            position: absolute; 
+            width: 90%;  
+            max-width: 540px;
+            background: rgba(0,0,0,0.9);
+            padding: 12px 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+            z-index: 99999;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            white-space: normal; 
+            color: #fff;
+        }
+
+        .info-tooltip::before {
+            content: "";
+            position: absolute;
+            bottom: 100%; 
+            width: 0; 
+            height: 0; 
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid rgba(0,0,0,0.9);
+
+            left: var(--arrowOffset, 50%);
+            transform: translateX(-50%);
+        }
+        .info-tooltip.active {
+            display: block;
         }
     </style>
 </head>
 <body>
     <div class="container">
+
         <h1>Drone flight path generator</h1>
 
-        <h2>Location</h2>
+        <!-- LOCATION SECTION -->
+        <h2>
+            Location
+            <span class="info-wrapper">
+                <span class="info-pill-icon" data-tooltip-target="tooltipLocation">info</span>
+            </span>
+        </h2>
+        <div class="info-tooltip" id="tooltipLocation">
+            <p>This section is all about setting your flight’s <strong>title</strong> and <strong>coordinates</strong>.
+            Make sure you accurately enter latitude/longitude, plus any separate takeoff coordinate if needed.
+            Remember that latitude is positive in the Northern Hemisphere and negative in the Southern Hemisphere, and longitude is negative in the Western Hemisphere and positive in the Eastern Hemisphere. Double-check these signs if you’re near the equator or prime meridian.</p>
+        </div>
+
         <form id="coordinateForm">
             <div class="input-row">
                 <div class="input-wrapper" data-label="Title">
@@ -443,7 +518,18 @@
                 <div class="hover-overlay"></div>
             </div>
 
-            <h2>Flight</h2>
+            <!-- FLIGHT SECTION -->
+            <h2>
+                Flight
+                <span class="info-wrapper">
+                    <span class="info-pill-icon" data-tooltip-target="tooltipFlight">info</span>
+                </span>
+            </h2>
+            <div class="info-tooltip" id="tooltipFlight">
+                <p>Here you can select <strong>Standard</strong> or <strong>Advanced</strong> mode 
+                and fine-tune details like altitude range, loops, radius increments, etc. In Standard mode, a single slider controls the overall flight size. In Advanced mode, you can customize the number of loops, initial radius, and whether increments are exponential. Use the battery capacity to split the flight into multiple segments if needed.</p>
+            </div>
+
             <div class="pill-toggle" id="modeToggle" data-mode="standard">
                 <div class="pill-toggle-selector"></div>
                 <div class="pill-toggle-labels">
@@ -589,10 +675,6 @@
                         <div class="hover-overlay"></div>
                     </div>
                 </div>
-
-                <!-- (Removed the POI Gimbal Tilt text field here) -->
-
-                <!-- New Battery Capacity in advanced mode -->
                 <div class="input-wrapper" data-label="Battery Capacity">
                     <input 
                         type="number" 
@@ -612,13 +694,23 @@
                         <input type="checkbox" id="poiModeToggle">
                         <span class="slider"></span>
                     </div>
-                    <!-- Swapped label text -->
                     <span class="toggle-text">Use POI Elevation Instead of Gimbal Tilt Control</span>
                 </label>
             </div>
             <button type="button" id="addPoiButton" style="display:none;">Add POI</button>
 
-            <h2>Download</h2>
+            <!-- DOWNLOAD SECTION -->
+            <h2>
+                Download
+                <span class="info-wrapper">
+                    <span class="info-pill-icon" data-tooltip-target="tooltipDownload">info</span>
+                </span>
+            </h2>
+            <div class="info-tooltip" id="tooltipDownload">
+                <p>After generating, you can download the flight path CSV. If it’s split into segments 
+                (multi-battery missions), each segment will have its own download button. You can then import these CSV files into your preferred flight planning software. If multiple segments are generated, each one picks up where the last segment ended in order to accommodate your battery capacity.</p>
+            </div>
+
             <button type="submit" id="generateButton">Generate flight path</button>
             <div id="result"></div>
             <button id="downloadMasterBtn" style="display:none;">Download Master Flight Path CSV</button>
@@ -663,20 +755,22 @@
             });
         });
 
-        // 2) Slider fraction => default Advanced values.
+        // 2) Slider fraction => default Advanced values (including exponential radius & height increments).
         function getAdvancedValuesFromSliderFraction(fraction) {
-            // fraction in [0..1]
-            // Loops: 3..17
+            // Loops, initial radius, startAGL, etc. remain linear as before:
             const loops = Math.round(3 + (17 - 3) * fraction);
-            // Initial radius: 100..300
             const initRadius = Math.round(100 + (300 - 100) * fraction);
-            // Radius increment: 20..80
-            const radInc = Math.round(20 + (80 - 20) * fraction);
-            // Height increment: 10..50
-            const incAGL = Math.round(10 + (50 - 10) * fraction);
-            // Initial AGL: 100..300
+
+            // For radiusIncrement and aglIncrement, make them exponential:
+            const radIncExpMin = 20;
+            const radIncExpMax = 80;
+            const radInc = Math.round(radIncExpMin * Math.pow(radIncExpMax / radIncExpMin, fraction));
+
+            const incAGLExpMin = 10;
+            const incAGLExpMax = 50;
+            const incAGL = Math.round(incAGLExpMin * Math.pow(incAGLExpMax / incAGLExpMin, fraction));
+
             const startAGL = Math.round(100 + (300 - 100) * fraction);
-            // Start point altitude: 50..150
             const startAlt = Math.round(50 + (150 - 50) * fraction);
 
             return {
@@ -703,7 +797,6 @@
                 poiSection.style.display = 'block';
                 addPoiButton.style.display = 'inline-block';
 
-                // Pre-fill advanced fields based on the slider fraction
                 const fraction = getSliderFraction();
                 const advVals = getAdvancedValuesFromSliderFraction(fraction);
                 document.getElementById("numLoops").value = advVals.loops;
@@ -834,7 +927,7 @@
             const generateBtn = document.getElementById("generateButton");
             const originalBtnText = generateBtn.textContent;
 
-            // Show spinner, clear the button text, and disable the button
+            // Show spinner, clear the button text, and disable it
             generateBtn.disabled = true;
             generateBtn.innerHTML = `<div class="spinner"></div>`;
 
@@ -869,7 +962,6 @@
                 exponentialAGL: document.getElementById("exponentialAGL").checked,
                 initialAGL: document.getElementById("initialAGL").value.trim(),
                 startPointAltitude: document.getElementById("startPointAltitude").value.trim(),
-                /* Removed the poiAltitude line */
                 useGimbalTiltMode: !document.getElementById("poiModeToggle").checked,
                 poiRows: []
             };
@@ -888,8 +980,6 @@
             }
 
             try {
-                console.log("Starting API call with payload:", payload);
-
                 // *** CALL YOUR AWS LAMBDA ENDPOINT HERE ***
                 const lambdaUrl = "https://2sgk99b5pg.execute-api.us-west-2.amazonaws.com/dev/DronePathREST";
                 const response = await fetch(lambdaUrl, {
@@ -898,49 +988,31 @@
                     body: JSON.stringify(payload)
                 });
 
-                console.log("API call completed. Response status:", response.status);
-
                 if (!response.ok) {
                     throw new Error(`Lambda request failed: ${response.status}`);
                 }
 
                 const rawData = await response.json();
-                console.log("Raw API response:", rawData);
-
                 const data = typeof rawData.body === "string" ? JSON.parse(rawData.body) : rawData.body;
-                console.log("Parsed API response body:", data);
 
-                // Process logs from API
                 if (data && data.logs) {
-                    console.log("Processing logs from API response...");
                     data.logs.forEach(entry => {
                         log(entry.title, entry.msg);
-                        console.log("Log entry:", entry);
                     });
                 }
 
                 if (data.error) {
-                    console.error("Error from API:", data.error);
                     throw new Error(data.error);
                 }
 
                 if (data.elevationMsg) {
-                    console.log("Elevation message:", data.elevationMsg);
                     resultDiv.innerHTML = data.elevationMsg;
-                } else {
-                    console.log("No elevation message received.");
                 }
-
                 if (typeof data.totalFlightTimeMinutes !== "undefined") {
-                    console.log("Total flight time (minutes):", data.totalFlightTimeMinutes);
                     flightTimeDiv.style.display = "block";
                     flightTimeDiv.innerHTML = `Estimated Total Flight Time: ${data.totalFlightTimeMinutes.toFixed(2)} minutes`;
-                } else {
-                    console.log("No flight time data received.");
                 }
-
                 if (data.masterWaypoints && data.masterWaypoints.length) {
-                    console.log("Master waypoints found. Enabling download button.");
                     downloadMasterBtn.style.display = "inline-block";
                     const titleSafe = sanitizeTitle(data.title || 'untitled');
                     downloadMasterBtn.onclick = function() {
@@ -948,12 +1020,9 @@
                         log('Download:', `${titleSafe}-master.csv has been downloaded.`);
                     };
                 } else {
-                    console.log("No master waypoints found.");
                     downloadMasterBtn.style.display = "none";
                 }
-
                 if (data.segments && data.segments.length) {
-                    console.log(`Found ${data.segments.length} flight segments. Displaying download buttons.`);
                     segmentDownloadsDiv.style.display = "block";
                     segmentDownloadsDiv.innerHTML = `<p>Flight Segments (${data.segments.length}):</p>`;
                     data.segments.forEach((segment, idx) => {
@@ -968,23 +1037,19 @@
                         segmentDownloadsDiv.appendChild(btn);
                     });
                 } else {
-                    console.log("No segments found in API response.");
                     segmentDownloadsDiv.style.display = "none";
                 }
 
             } catch (error) {
-                console.error("Error caught in try-catch block:", error.message);
                 resultDiv.innerHTML = `Error: ${error.message}`;
                 log('Error:', error.message);
                 downloadMasterBtn.style.display = "none";
                 flightTimeDiv.style.display = "none";
                 segmentDownloadsDiv.style.display = "none";
             } finally {
-                // Revert the button to its original state
                 generateBtn.innerHTML = originalBtnText;
                 generateBtn.disabled = false;
             }
-
         });
 
         function log(title, msg) {
@@ -1027,6 +1092,59 @@
         function sanitizeTitle(t) {
             return t.replace(/[^a-z0-9_\-]/gi, '_');
         }
+
+        // ===== JS FOR TOOLTIP POSITIONING =====
+        document.addEventListener('click', function(e) {
+            // Select the clicked element and determine if it's an info icon or tooltip
+            const isIcon = e.target.matches('.info-pill-icon');
+            const isTooltip = e.target.closest('.info-tooltip');
+            
+            // Get all active tooltips
+            const openTooltips = document.querySelectorAll('.info-tooltip.active');
+
+            // Close all tooltips if clicking outside
+            if (!isIcon && !isTooltip) {
+                openTooltips.forEach(tip => {
+                    tip.classList.remove('active');
+                    tip.style.display = 'none';
+                });
+            }
+
+            // Handle tooltip click
+            if (isIcon) {
+                e.preventDefault();  // Prevent default behavior if any
+                const icon = e.target;
+                const tooltipId = icon.getAttribute('data-tooltip-target');
+                const tooltip = document.getElementById(tooltipId);
+
+                if (tooltip.classList.contains('active')) {
+                    tooltip.classList.remove('active');
+                    tooltip.style.display = 'none';
+                } else {
+                    openTooltips.forEach(tip => {
+                        tip.classList.remove('active');
+                        tip.style.display = 'none';
+                    });
+                    tooltip.classList.add('active');
+                    tooltip.style.display = 'block';
+
+                    // Positioning logic
+                    const containerRect = document.querySelector('.container').getBoundingClientRect();
+                    const iconRect = icon.getBoundingClientRect();
+                    const top = (iconRect.bottom - containerRect.top) + 10;
+                    tooltip.style.top = top + 'px';
+
+                    tooltip.style.left = '50%';
+                    tooltip.style.transform = 'translateX(-50%)';
+
+                    // Adjust arrow positioning
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    const iconCenterX = iconRect.left + (iconRect.width / 2);
+                    const arrowX = iconCenterX - tooltipRect.left;
+                    tooltip.style.setProperty('--arrowOffset', arrowX + 'px');
+                }
+            }
+        });
     </script>
 </body>
 </html>
